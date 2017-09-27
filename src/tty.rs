@@ -45,8 +45,16 @@ pub fn get_tty() -> io::Result<Box<io::Read>> {
 }
 
 #[cfg(not(windows))]
-pub fn init() -> () {
-    ()
+pub fn init() -> Guard {
+    Guard
+}
+
+#[cfg(not(windows))]
+pub struct Guard {}
+
+#[cfg(windows)]
+pub struct Guard {
+    _pre_init_state: windows::PreInitState
 }
 
 #[cfg(windows)]
@@ -80,13 +88,15 @@ pub /*(crate)*/ mod windows {
             }
         }
     }
-
-    pub fn init() -> PreInitState {
-        do_init().unwrap_or(PreInitState {
-                                do_cleanup: false,
-                                current_out_mode: 0,
-                                current_in_mode: 0,
-                            })
+    use tty::Guard;
+    pub fn init() -> Guard {
+        Guard {
+            _pre_init_state: do_init().unwrap_or(PreInitState {
+                do_cleanup: false,
+                current_out_mode: 0,
+                current_in_mode: 0,
+            })
+        }
     }
 
     fn do_init() -> Result<PreInitState, io::Error> {
@@ -98,7 +108,7 @@ pub /*(crate)*/ mod windows {
         let current_in_mode = get_console_mode(StdStream::IN)?;
 
         let new_out_mode = current_out_mode | ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT |
-                           ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            ENABLE_VIRTUAL_TERMINAL_PROCESSING;
 
         // ignore failure here and hope we are in a capable third party console
         set_console_mode(StdStream::OUT, new_out_mode).ok();
@@ -120,10 +130,10 @@ pub /*(crate)*/ mod windows {
         println!("cim {:x}, com {:x}", current_in_mode, current_out_mode);
 
         Ok(PreInitState {
-               do_cleanup: true,
-               current_out_mode,
-               current_in_mode,
-           })
+            do_cleanup: true,
+            current_out_mode,
+            current_in_mode,
+        })
     }
 
     #[derive(Copy, Clone)]
@@ -173,13 +183,13 @@ pub /*(crate)*/ mod windows {
     pub fn set_raw_input_mode(enable: bool) -> bool {
         get_console_mode(StdStream::IN)
             .map(|current_mode| {
-                     let new_mode = if enable {
-                         current_mode & !ENABLE_LINE_INPUT
-                     } else {
-                         current_mode | ENABLE_LINE_INPUT
-                     };
-                     set_console_mode(StdStream::IN, new_mode)
-                 })
+                let new_mode = if enable {
+                    current_mode & !ENABLE_LINE_INPUT
+                } else {
+                    current_mode | ENABLE_LINE_INPUT
+                };
+                set_console_mode(StdStream::IN, new_mode)
+            })
             .is_ok()
     }
 
@@ -193,9 +203,6 @@ pub /*(crate)*/ mod windows {
     /// This allows for getting stdio representing _only_ the TTY, and not other streams.
     #[cfg(target_os = "windows")]
     pub fn get_tty() -> io::Result<Box<io::Read>> {
-
-
-
         // TODO:
         // should this be CreateFile CONOUT$ ??
 
