@@ -31,7 +31,7 @@ pub use size::terminal_size;
 
 mod tty;
 pub use tty::{is_tty, get_tty, init};
-pub use tty::windows::PreInitState;
+pub use tty::Guard;
 
 #[macro_use]
 mod macros;
